@@ -372,7 +372,19 @@ with st.sidebar:
             st.success("✅ Browsers are installed and ready!")
         else:
             st.warning(status_msg)
-            st.caption("Click the button below to attempt installation.")
+            if "missing dependencies" in status_msg.lower() or "system libraries" in status_msg.lower():
+                st.info("""
+                **System Dependencies Required**
+                
+                The browser binaries are installed, but system libraries are missing.
+                These should be installed automatically via `packages.txt`.
+                
+                **If you see this error:**
+                1. The `packages.txt` file should install these on next deployment
+                2. Redeploy the app to trigger system package installation
+                3. If it persists, contact Streamlit support
+                """)
+            st.caption("Click the button below to attempt browser installation.")
         
         if st.button("📦 Install/Reinstall Browsers", use_container_width=True, type="secondary"):
             try:

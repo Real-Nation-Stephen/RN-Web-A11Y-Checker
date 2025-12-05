@@ -16,17 +16,22 @@ def check_browsers_installed():
             try:
                 browser = p.chromium.launch(headless=True)
                 browser.close()
-                return True, "✅ Browsers are installed"
+                return True, "✅ Browsers are installed and ready"
             except Exception as e:
                 error_msg = str(e).lower()
-                if any(keyword in error_msg for keyword in ["executable", "browser", "not found", "doesn't exist"]):
-                    return False, f"❌ Browsers not found: {str(e)}"
+                error_str = str(e)
+                
+                # Check for missing system dependencies
+                if "missing dependencies" in error_msg or "install-deps" in error_msg:
+                    return False, f"⚠️ System dependencies missing: Browsers installed but system libraries needed. See packages.txt"
+                elif any(keyword in error_msg for keyword in ["executable", "browser", "not found", "doesn't exist"]):
+                    return False, f"❌ Browsers not found: {error_str[:200]}"
                 else:
-                    return False, f"⚠️ Browser launch error: {str(e)}"
+                    return False, f"⚠️ Browser launch error: {error_str[:200]}"
     except ImportError:
         return False, "⚠️ Playwright not installed"
     except Exception as e:
-        return False, f"⚠️ Error checking: {str(e)}"
+        return False, f"⚠️ Error checking: {str(e)[:200]}"
 
 def ensure_playwright_browsers():
     """Ensure Playwright browsers are installed"""
