@@ -157,6 +157,12 @@ def bucket_name(criterion_text):
 
 
 async def scan_site(start_url: str, max_pages: int = DEFAULT_MAX_PAGES):
+    # Try to ensure Playwright browsers are installed
+    try:
+        from playwright_setup import ensure_playwright_browsers
+        ensure_playwright_browsers()
+    except Exception as e:
+        print(f"⚠️ Could not auto-install browsers: {e}")
     host = urllib.parse.urlparse(start_url).netloc
     results = {
         "scanned_at": datetime.date.today().isoformat(),
@@ -177,14 +183,19 @@ async def scan_site(start_url: str, max_pages: int = DEFAULT_MAX_PAGES):
                 if any(keyword in error_msg for keyword in ["executable", "browser", "not found", "doesn't exist"]):
                     st.error("❌ **Playwright browsers are not installed**")
                     st.warning("""
-                    **For Streamlit Cloud deployment:**
+                    **This app requires Playwright browsers to scan websites.**
                     
-                    Playwright browsers need to be installed during deployment. 
-                    This requires adding a post-install step.
+                    **For Streamlit Cloud:**
+                    - Browsers need to be installed during deployment
+                    - This is a known limitation of Streamlit Cloud
+                    - Contact Streamlit support or use a different hosting platform
                     
-                    **Temporary workaround:** The app cannot run scans until browsers are installed.
-                    Please contact support to add browser installation to the deployment process.
+                    **Alternative:** Run this app locally where you can install browsers with:
+                    ```bash
+                    playwright install chromium
+                    ```
                     """)
+                    st.info("💡 **Note:** The app will work once browsers are installed. This is a one-time setup requirement.")
                     return results
                 else:
                     # Other errors - show them
