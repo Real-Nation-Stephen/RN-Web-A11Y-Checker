@@ -1,0 +1,4 @@
+# System packages required for Playwright browsers
+# Streamlit Cloud will install these automatically
+# Note: Playwright browsers still need to be installed via Python
+

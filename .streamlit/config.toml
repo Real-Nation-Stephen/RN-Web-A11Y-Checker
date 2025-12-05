@@ -1,0 +1,8 @@
+# Streamlit configuration
+[server]
+headless = true
+
+# Note: Playwright browsers need to be installed separately
+# For Streamlit Cloud, browsers must be installed via post-install script
+# or during the build process
+

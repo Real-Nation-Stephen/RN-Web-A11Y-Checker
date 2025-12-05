@@ -6,6 +6,7 @@
 import asyncio
 import datetime
 import json
+import os
 import re
 import urllib.parse
 from collections import defaultdict, Counter
@@ -15,6 +16,55 @@ import streamlit as st
 from jinja2 import Template
 from playwright.async_api import async_playwright
 from auth.auth_module import AuthManager, check_authentication
+
+# Load favicon - MUST be before any other Streamlit commands
+try:
+    from PIL import Image
+    # Try multiple possible paths for the icon
+    icon_paths = [
+        "Assets/RN_Web_A11y_IconDesign Wrapped.png",
+        "assets/RN_Web_A11y_IconDesign Wrapped.png",
+        os.path.join(os.path.dirname(__file__), "Assets", "RN_Web_A11y_IconDesign Wrapped.png"),
+    ]
+    
+    favicon = None
+    for path in icon_paths:
+        try:
+            favicon = Image.open(path)
+            print(f"✅ Loaded favicon from: {path}")
+            break
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            print(f"⚠️ Error loading {path}: {e}")
+            continue
+    
+    if favicon:
+        st.set_page_config(
+            page_title="Website Accessibility Checker",
+            page_icon=favicon,
+            layout="wide"
+        )
+    else:
+        st.set_page_config(
+            page_title="Website Accessibility Checker",
+            page_icon="♿",
+            layout="wide"
+        )
+except ImportError:
+    # Pillow not installed, use emoji
+    st.set_page_config(
+        page_title="Website Accessibility Checker",
+        page_icon="♿",
+        layout="wide"
+    )
+except Exception as e:
+    print(f"⚠️ Error setting page config: {e}")
+    st.set_page_config(
+        page_title="Website Accessibility Checker",
+        page_icon="♿",
+        layout="wide"
+    )
 
 DEFAULT_MAX_PAGES = 40
 DESKTOP_VIEWPORT = {"width": 1280, "height": 800}
@@ -116,55 +166,83 @@ async def scan_site(start_url: str, max_pages: int = DEFAULT_MAX_PAGES):
 
     visited, queue = set(), [start_url]
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        context = await browser.new_context(viewport=DESKTOP_VIEWPORT)
-        page = await context.new_page()
-
-        while queue and len(visited) < max_pages:
-            url = queue.pop(0)
-            if url in visited:
-                continue
-            visited.add(url)
-
+    try:
+        async with async_playwright() as p:
+            # Try to launch browser - handle installation issues gracefully
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            except Exception:
-                continue
+                browser = await p.chromium.launch()
+            except Exception as browser_error:
+                error_msg = str(browser_error).lower()
+                # Check if it's a browser installation issue
+                if any(keyword in error_msg for keyword in ["executable", "browser", "not found", "doesn't exist"]):
+                    st.error("❌ **Playwright browsers are not installed**")
+                    st.warning("""
+                    **For Streamlit Cloud deployment:**
+                    
+                    Playwright browsers need to be installed during deployment. 
+                    This requires adding a post-install step.
+                    
+                    **Temporary workaround:** The app cannot run scans until browsers are installed.
+                    Please contact support to add browser installation to the deployment process.
+                    """)
+                    return results
+                else:
+                    # Other errors - show them
+                    st.error(f"❌ Browser launch failed: {str(browser_error)}")
+                    return results
+            
+            context = await browser.new_context(viewport=DESKTOP_VIEWPORT)
+            page = await context.new_page()
 
-            # Enqueue same-site links
-            try:
-                links = await page.eval_on_selector_all("a[href]", "els => els.map(e => e.href)")
-                for href in links:
-                    if same_site(href, host) and href not in visited and href not in queue:
-                        queue.append(href)
-            except Exception:
-                pass
+            while queue and len(visited) < max_pages:
+                url = queue.pop(0)
+                if url in visited:
+                    continue
+                visited.add(url)
 
-            # Inject axe-core from CDN and run
-            try:
-                await page.add_script_tag(url="https://cdn.jsdelivr.net/npm/axe-core@4.9.1/axe.min.js")
-                axe = await page.evaluate("""() => new Promise((resolve) => {
-                    window.axe.run(document, { resultTypes: ["violations"] }).then(resolve);
-                })""")
-            except Exception:
-                axe = {"violations": []}
+                try:
+                    await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                except Exception:
+                    continue
 
-            # Map axe violations (flatten a bit)
-            for v in axe.get("violations", []):
-                selector = (v.get("nodes", [{}])[0].get("target", ["?"])[0])
-                results["violations"].append({
-                    "page": url,
-                    "criterion": f"{v.get('id')} — {v.get('help')}",
-                    "axe_id": v.get("id"),
-                    "severity": v.get("impact"),
-                    "elements": [{"selector": selector}],
-                    "recommended_fix": v.get("helpUrl")
-                })
+                # Enqueue same-site links
+                try:
+                    links = await page.eval_on_selector_all("a[href]", "els => els.map(e => e.href)")
+                    for href in links:
+                        if same_site(href, host) and href not in visited and href not in queue:
+                            queue.append(href)
+                except Exception:
+                    pass
 
-            results["pages_scanned"] = len(visited)
+                # Inject axe-core from CDN and run
+                try:
+                    await page.add_script_tag(url="https://cdn.jsdelivr.net/npm/axe-core@4.9.1/axe.min.js")
+                    axe = await page.evaluate("""() => new Promise((resolve) => {
+                        window.axe.run(document, { resultTypes: ["violations"] }).then(resolve);
+                    })""")
+                except Exception:
+                    axe = {"violations": []}
 
-        await browser.close()
+                # Map axe violations (flatten a bit)
+                for v in axe.get("violations", []):
+                    selector = (v.get("nodes", [{}])[0].get("target", ["?"])[0])
+                    results["violations"].append({
+                        "page": url,
+                        "criterion": f"{v.get('id')} — {v.get('help')}",
+                        "axe_id": v.get("id"),
+                        "severity": v.get("impact"),
+                        "elements": [{"selector": selector}],
+                        "recommended_fix": v.get("helpUrl")
+                    })
+
+                results["pages_scanned"] = len(visited)
+
+            await browser.close()
+    except Exception as e:
+        st.error(f"❌ Error during site scan: {str(e)}")
+        import traceback
+        st.exception(e)
+        return results
 
     return results
 
