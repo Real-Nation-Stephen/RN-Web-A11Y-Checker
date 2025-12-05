@@ -300,12 +300,6 @@ def render_statement(results: dict, org_name: str, contact_name: str, contact_em
 # Streamlit UI
 # -----------------------------
 
-st.set_page_config(
-    page_title="Website Accessibility Checker", 
-    page_icon="♿", 
-    layout="wide"
-)
-
 # Initialize authentication
 if 'auth_manager' not in st.session_state:
     st.session_state.auth_manager = AuthManager()

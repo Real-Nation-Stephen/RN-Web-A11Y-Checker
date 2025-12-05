@@ -321,12 +321,6 @@ def build_client_statement_docx(results, org_name, contact_name, contact_email):
     return buf
 
 # -------------------- STREAMLIT UI --------------------
-st.set_page_config(
-    page_title="Website Accessibility Checker (Client Files)",
-    page_icon="♿",
-    layout="wide"
-)
-
 # Initialize authentication
 if 'auth_manager' not in st.session_state:
     st.session_state.auth_manager = AuthManager()
