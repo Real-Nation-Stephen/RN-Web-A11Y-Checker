@@ -1,3 +1,0 @@
-# packages.txt should be empty or contain only actual system packages
-# Playwright browsers are installed via Python, not apt-get
-# Leave this file empty or delete it
