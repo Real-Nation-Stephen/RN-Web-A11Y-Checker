@@ -31,27 +31,65 @@ class AuthManager:
         
         try:
             # Try Streamlit secrets first (for cloud deployment)
-            if hasattr(st, 'secrets'):
-                if 'project_id' in st.secrets and 'client_email' in st.secrets:
+            if hasattr(st, 'secrets') and st.secrets:
+                # Check if secrets exist - try different ways to access them
+                secrets_dict = dict(st.secrets) if hasattr(st.secrets, '__iter__') else {}
+                
+                # Debug: show what keys are available
+                available_keys = list(secrets_dict.keys()) if secrets_dict else []
+                print(f"🔍 Available secret keys: {available_keys}")
+                
+                # Check for required fields
+                has_project_id = 'project_id' in secrets_dict
+                has_client_email = 'client_email' in secrets_dict
+                has_spreadsheet_id = 'SPREADSHEET_ID' in secrets_dict
+                
+                print(f"🔍 Has project_id: {has_project_id}, Has client_email: {has_client_email}, Has SPREADSHEET_ID: {has_spreadsheet_id}")
+                
+                if has_project_id and has_client_email:
                     print("✅ Loading credentials from Streamlit secrets...")
+                    
+                    # Get private key - handle both string and multi-line formats
+                    private_key = secrets_dict.get("private_key", "")
+                    if private_key and not private_key.startswith("-----BEGIN"):
+                        # If it's stored without newlines, try to reconstruct
+                        print("⚠️ Private key format may need adjustment")
+                    
                     self.credentials = {
-                        "type": st.secrets.get("type", "service_account"),
-                        "project_id": st.secrets.get("project_id", ""),
-                        "private_key_id": st.secrets.get("private_key_id", ""),
-                        "private_key": st.secrets.get("private_key", ""),
-                        "client_email": st.secrets.get("client_email", ""),
-                        "client_id": st.secrets.get("client_id", ""),
-                        "auth_uri": st.secrets.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
-                        "token_uri": st.secrets.get("token_uri", "https://oauth2.googleapis.com/token"),
-                        "auth_provider_x509_cert_url": st.secrets.get("auth_provider_x509_cert_url", "https://www.googleapis.com/oauth2/v1/certs"),
-                        "client_x509_cert_url": st.secrets.get("client_x509_cert_url", ""),
-                        "universe_domain": st.secrets.get("universe_domain", "googleapis.com")
+                        "type": secrets_dict.get("type", "service_account"),
+                        "project_id": secrets_dict.get("project_id", ""),
+                        "private_key_id": secrets_dict.get("private_key_id", ""),
+                        "private_key": private_key,
+                        "client_email": secrets_dict.get("client_email", ""),
+                        "client_id": secrets_dict.get("client_id", ""),
+                        "auth_uri": secrets_dict.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
+                        "token_uri": secrets_dict.get("token_uri", "https://oauth2.googleapis.com/token"),
+                        "auth_provider_x509_cert_url": secrets_dict.get("auth_provider_x509_cert_url", "https://www.googleapis.com/oauth2/v1/certs"),
+                        "client_x509_cert_url": secrets_dict.get("client_x509_cert_url", ""),
+                        "universe_domain": secrets_dict.get("universe_domain", "googleapis.com")
                     }
-                    self.spreadsheet_id = st.secrets.get("SPREADSHEET_ID", "")
-                    self.users_tab = st.secrets.get("USERS_TAB_NAME", "Users")
-                    return
+                    self.spreadsheet_id = secrets_dict.get("SPREADSHEET_ID", "")
+                    self.users_tab = secrets_dict.get("USERS_TAB_NAME", "Users")
+                    
+                    # Validate we have essential fields
+                    if not self.spreadsheet_id:
+                        print("⚠️ WARNING: SPREADSHEET_ID not found in secrets!")
+                    if not self.credentials.get("private_key"):
+                        print("⚠️ WARNING: private_key not found in secrets!")
+                    if not self.credentials.get("client_email"):
+                        print("⚠️ WARNING: client_email not found in secrets!")
+                    
+                    if self.spreadsheet_id and self.credentials.get("private_key") and self.credentials.get("client_email"):
+                        print(f"✅ Credentials loaded successfully. Spreadsheet ID: {self.spreadsheet_id[:10]}...")
+                        return
+                    else:
+                        print("❌ Credentials incomplete, falling back to local file...")
+                else:
+                    print(f"⚠️ Required secrets not found. Looking for: project_id, client_email")
         except Exception as e:
             print(f"⚠️ Failed to load from Streamlit secrets: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
         
         try:
             # Fall back to local file (for local development)
@@ -77,7 +115,21 @@ class AuthManager:
         try:
             if not self.credentials or not self.spreadsheet_id:
                 print("⚠️ No credentials found")
+                print(f"   - Has credentials dict: {self.credentials is not None}")
+                print(f"   - Has spreadsheet_id: {self.spreadsheet_id is not None and self.spreadsheet_id != ''}")
                 return False
+            
+            # Validate credentials structure
+            required_fields = ["type", "project_id", "private_key", "client_email"]
+            missing_fields = [f for f in required_fields if not self.credentials.get(f)]
+            if missing_fields:
+                print(f"❌ Missing required credential fields: {missing_fields}")
+                return False
+            
+            print(f"🔗 Connecting to Google Sheets...")
+            print(f"   - Project ID: {self.credentials.get('project_id')}")
+            print(f"   - Client Email: {self.credentials.get('client_email')}")
+            print(f"   - Spreadsheet ID: {self.spreadsheet_id}")
             
             scopes = [
                 "https://www.googleapis.com/auth/spreadsheets",
@@ -90,7 +142,9 @@ class AuthManager:
             print(f"✅ Connected to Google Sheets: {self.spreadsheet.title}")
             return True
         except Exception as e:
-            print(f"❌ Failed to connect: {str(e)}")
+            print(f"❌ Failed to connect to Google Sheets: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             return False
     
     def get_users_from_sheet(self) -> List[Dict]:
@@ -160,12 +214,30 @@ def show_login_page(auth_manager: AuthManager):
     """Display login page"""
     st.markdown('<h1 style="text-align: center;">🔐 Login Required</h1>', unsafe_allow_html=True)
     
+    # Show connection status
+    with st.expander("🔍 Connection Status", expanded=False):
+        has_creds = auth_manager.credentials is not None
+        has_spreadsheet_id = auth_manager.spreadsheet_id is not None and auth_manager.spreadsheet_id != ""
+        st.write(f"**Credentials loaded:** {'✅ Yes' if has_creds else '❌ No'}")
+        st.write(f"**Spreadsheet ID:** {'✅ Set' if has_spreadsheet_id else '❌ Missing'}")
+        if has_creds:
+            st.write(f"**Client Email:** {auth_manager.credentials.get('client_email', 'N/A')}")
+        if has_spreadsheet_id:
+            st.write(f"**Spreadsheet ID:** {auth_manager.spreadsheet_id}")
+    
     # Get users for dropdown
     users = auth_manager.get_users_from_sheet()
     
     if not users:
         st.error("❌ No users found. Please check your Google Sheets configuration.")
         st.info("💡 For local development, create `auth/password_sheet_api.py` with your credentials.")
+        st.info("💡 For Streamlit Cloud, add secrets in Settings → Secrets.")
+        
+        # Show debug info
+        if not auth_manager.credentials:
+            st.warning("⚠️ No credentials loaded. Check Streamlit Cloud secrets or local auth file.")
+        elif not auth_manager.spreadsheet_id:
+            st.warning("⚠️ No Spreadsheet ID found. Make sure SPREADSHEET_ID is in your secrets.")
         return
     
     user_names = [user['name'] for user in users]

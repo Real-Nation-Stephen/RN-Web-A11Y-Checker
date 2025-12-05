@@ -266,7 +266,7 @@ def build_client_statement_docx(results, org_name, contact_name, contact_email):
 # -------------------- STREAMLIT UI --------------------
 st.set_page_config(
     page_title="Website Accessibility Checker (Client Files)",
-    page_icon="✅",
+    page_icon="♿",
     layout="wide"
 )
 
