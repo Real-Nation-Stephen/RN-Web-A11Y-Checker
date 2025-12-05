@@ -362,20 +362,33 @@ with st.sidebar:
     
     # Browser installation section
     with st.expander("🔧 Install Playwright Browsers", expanded=False):
-        st.caption("Required for website scanning. Click to install if you see browser errors.")
-        if st.button("📦 Install Browsers Now", use_container_width=True, type="secondary"):
-            with st.spinner("Installing Playwright browsers... This may take 2-3 minutes."):
-                try:
-                    from playwright_setup import install_playwright_browsers
-                    success = install_playwright_browsers()
-                    if success:
-                        st.success("✅ Browsers installed successfully! You can now run scans.")
-                        st.balloons()
-                    else:
-                        st.error("❌ Installation failed. Check the logs for details.")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-                    st.info("💡 If this fails, browsers may need to be installed via Streamlit Cloud settings.")
+        st.caption("Required for website scanning. Click to check status or install.")
+        
+        # Check current status
+        from playwright_setup import check_browsers_installed
+        is_installed, status_msg = check_browsers_installed()
+        
+        if is_installed:
+            st.success("✅ Browsers are installed and ready!")
+        else:
+            st.warning(status_msg)
+            st.caption("Click the button below to attempt installation.")
+        
+        if st.button("📦 Install/Reinstall Browsers", use_container_width=True, type="secondary"):
+            try:
+                from playwright_setup import install_playwright_browsers
+                success = install_playwright_browsers()
+                if success:
+                    st.success("✅ Browsers installed and verified! You can now run scans.")
+                    st.balloons()
+                    st.rerun()  # Refresh to update status
+                else:
+                    st.error("❌ Installation failed. See details above.")
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+                import traceback
+                with st.expander("Full error"):
+                    st.code(traceback.format_exc(), language="python")
     
     st.divider()
     

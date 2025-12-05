@@ -6,8 +6,8 @@ import subprocess
 import sys
 import os
 
-def ensure_playwright_browsers():
-    """Ensure Playwright browsers are installed"""
+def check_browsers_installed():
+    """Check if Playwright browsers are installed"""
     try:
         from playwright.sync_api import sync_playwright
         
@@ -16,73 +16,146 @@ def ensure_playwright_browsers():
             try:
                 browser = p.chromium.launch(headless=True)
                 browser.close()
-                print("✅ Playwright browsers are already installed")
-                return True
-            except Exception:
-                # Browsers not installed, try to install
-                print("🔧 Playwright browsers not found. Installing...")
-                return install_playwright_browsers()
+                return True, "✅ Browsers are installed"
+            except Exception as e:
+                error_msg = str(e).lower()
+                if any(keyword in error_msg for keyword in ["executable", "browser", "not found", "doesn't exist"]):
+                    return False, f"❌ Browsers not found: {str(e)}"
+                else:
+                    return False, f"⚠️ Browser launch error: {str(e)}"
     except ImportError:
-        print("⚠️ Playwright not installed")
-        return False
+        return False, "⚠️ Playwright not installed"
     except Exception as e:
-        print(f"⚠️ Error checking Playwright: {e}")
-        return False
+        return False, f"⚠️ Error checking: {str(e)}"
+
+def ensure_playwright_browsers():
+    """Ensure Playwright browsers are installed"""
+    is_installed, message = check_browsers_installed()
+    if is_installed:
+        print(message)
+        return True
+    else:
+        print(f"🔧 {message}. Attempting installation...")
+        return install_playwright_browsers()
 
 def install_playwright_browsers():
     """Install Playwright browsers"""
+    st = None
     try:
         import streamlit as st
-        st.info("📦 Installing Playwright Chromium browser... This may take a few minutes.")
     except:
+        pass
+    
+    if st:
+        st.info("📦 Installing Playwright Chromium browser... This may take a few minutes.")
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+    else:
         print("📦 Installing Playwright Chromium browser...")
+        progress_bar = None
+        status_text = None
     
     try:
+        if status_text:
+            status_text.text("Running: playwright install chromium")
+        if progress_bar:
+            progress_bar.progress(10)
+        
+        # Run the installation
         result = subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
-            check=True,
+            check=False,  # Don't raise on error, we'll check returncode
             capture_output=True,
             text=True,
             timeout=600  # 10 minute timeout
         )
-        output = result.stdout
-        if output:
-            print(output)
-            try:
-                import streamlit as st
-                st.text(output)
-            except:
-                pass
-        return True
+        
+        if progress_bar:
+            progress_bar.progress(90)
+        
+        # Check if installation succeeded
+        if result.returncode == 0:
+            output = result.stdout or "Installation completed"
+            print(f"✅ Installation successful: {output}")
+            if st:
+                if progress_bar:
+                    progress_bar.progress(100)
+                if status_text:
+                    status_text.text("✅ Installation complete!")
+                st.success("✅ Browsers installed successfully!")
+                if output and len(output.strip()) > 0:
+                    with st.expander("Installation output"):
+                        st.code(output, language="text")
+            
+            # Verify installation worked
+            if progress_bar:
+                progress_bar.progress(95)
+            if status_text:
+                status_text.text("Verifying installation...")
+            
+            is_installed, verify_msg = check_browsers_installed()
+            if is_installed:
+                if progress_bar:
+                    progress_bar.progress(100)
+                if status_text:
+                    status_text.text("✅ Verified: Browsers are ready!")
+                return True
+            else:
+                if st:
+                    st.warning(f"⚠️ Installation completed but verification failed: {verify_msg}")
+                    st.info("💡 Try refreshing the page and running a scan.")
+                return False
+        else:
+            # Installation failed
+            error_output = result.stderr or result.stdout or "Unknown error"
+            error_msg = f"❌ Installation failed (exit code {result.returncode})"
+            print(f"{error_msg}: {error_output}")
+            
+            if st:
+                st.error(error_msg)
+                with st.expander("Error details", expanded=True):
+                    st.code(error_output, language="text")
+                
+                # Check if it's a permission issue
+                if "permission" in error_output.lower() or "denied" in error_output.lower():
+                    st.warning("""
+                    **Permission Error Detected**
+                    
+                    Streamlit Cloud may not allow subprocess calls or file system writes.
+                    This is a known limitation. Options:
+                    1. Contact Streamlit support
+                    2. Use a different hosting platform (Railway, Render, etc.)
+                    3. Run the app locally
+                    """)
+                elif "timeout" in error_output.lower():
+                    st.warning("Installation timed out. The process may have been killed.")
+                else:
+                    st.info("💡 This might be a Streamlit Cloud limitation. Check the error details above.")
+            
+            return False
+            
     except subprocess.TimeoutExpired:
         error_msg = "❌ Browser installation timed out (took longer than 10 minutes)"
         print(error_msg)
-        try:
-            import streamlit as st
+        if st:
             st.error(error_msg)
-        except:
-            pass
-        return False
-    except subprocess.CalledProcessError as e:
-        error_msg = f"❌ Error installing browsers: {e.stderr or e.stdout or str(e)}"
-        print(error_msg)
-        try:
-            import streamlit as st
-            st.error(error_msg)
-            if e.stderr:
-                st.code(e.stderr, language="text")
-        except:
-            pass
+            st.warning("The installation process was killed due to timeout.")
         return False
     except Exception as e:
-        error_msg = f"❌ Unexpected error: {e}"
+        error_msg = f"❌ Unexpected error during installation: {str(e)}"
         print(error_msg)
-        try:
-            import streamlit as st
+        import traceback
+        traceback.print_exc()
+        if st:
             st.error(error_msg)
-        except:
-            pass
+            with st.expander("Full error details"):
+                st.code(traceback.format_exc(), language="python")
         return False
+    finally:
+        if progress_bar:
+            progress_bar.empty()
+        if status_text:
+            status_text.empty()
 
 # Auto-install on import (only in Streamlit Cloud environment)
 if os.getenv("STREAMLIT_SERVER_PORT") or os.getenv("STREAMLIT_SHARE"):
