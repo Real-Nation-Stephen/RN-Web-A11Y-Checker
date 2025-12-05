@@ -17,49 +17,17 @@ from jinja2 import Template
 from playwright.async_api import async_playwright
 from auth.auth_module import AuthManager, check_authentication
 
-# Load favicon - MUST be before any other Streamlit commands
+# Page configuration - MUST be before any other Streamlit commands
 try:
     from PIL import Image
-    # Try multiple possible paths for the icon
-    icon_paths = [
-        "Assets/RN_Web_A11y_IconDesign Wrapped.png",
-        "assets/RN_Web_A11y_IconDesign Wrapped.png",
-        os.path.join(os.path.dirname(__file__), "Assets", "RN_Web_A11y_IconDesign Wrapped.png"),
-    ]
-    
-    favicon = None
-    for path in icon_paths:
-        try:
-            favicon = Image.open(path)
-            print(f"✅ Loaded favicon from: {path}")
-            break
-        except FileNotFoundError:
-            continue
-        except Exception as e:
-            print(f"⚠️ Error loading {path}: {e}")
-            continue
-    
-    if favicon:
+    with Image.open("Icon.png") as favicon:
         st.set_page_config(
             page_title="Website Accessibility Checker",
             page_icon=favicon,
             layout="wide"
         )
-    else:
-        st.set_page_config(
-            page_title="Website Accessibility Checker",
-            page_icon="♿",
-            layout="wide"
-        )
-except ImportError:
-    # Pillow not installed, use emoji
-    st.set_page_config(
-        page_title="Website Accessibility Checker",
-        page_icon="♿",
-        layout="wide"
-    )
-except Exception as e:
-    print(f"⚠️ Error setting page config: {e}")
+except:
+    # Fallback if icon file not found
     st.set_page_config(
         page_title="Website Accessibility Checker",
         page_icon="♿",
