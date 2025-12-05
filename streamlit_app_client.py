@@ -19,40 +19,16 @@ from docx import Document
 from auth.auth_module import AuthManager, check_authentication
 
 # Page configuration - MUST be before any other Streamlit commands
-import os
-
 try:
     from PIL import Image
-    
-    # Try root Icon.png first (standard location)
-    if os.path.exists("Icon.png"):
-        with Image.open("Icon.png") as favicon:
-            st.set_page_config(
-                page_title="Website Accessibility Checker (Client Files)",
-                page_icon=favicon,
-                layout="wide"
-            )
-    elif os.path.exists("Assets/RN_Web_A11y_IconDesign Wrapped.png"):
-        with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
-            st.set_page_config(
-                page_title="Website Accessibility Checker (Client Files)",
-                page_icon=favicon,
-                layout="wide"
-            )
-    else:
+    with Image.open("Icon.png") as favicon:
         st.set_page_config(
             page_title="Website Accessibility Checker (Client Files)",
-            page_icon="♿",
+            page_icon=favicon,
             layout="wide"
         )
-except ImportError:
-    st.set_page_config(
-        page_title="Website Accessibility Checker (Client Files)",
-        page_icon="♿",
-        layout="wide"
-    )
-except Exception as e:
-    print(f"⚠️ Favicon error: {e}")
+except:
+    # Fallback if icon file not found
     st.set_page_config(
         page_title="Website Accessibility Checker (Client Files)",
         page_icon="♿",
