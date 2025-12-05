@@ -152,17 +152,17 @@ async def scan_site(start_url: str, max_pages: int = DEFAULT_MAX_PAGES):
                     st.warning("""
                     **This app requires Playwright browsers to scan websites.**
                     
-                    **For Streamlit Cloud:**
-                    - Browsers need to be installed during deployment
-                    - This is a known limitation of Streamlit Cloud
-                    - Contact Streamlit support or use a different hosting platform
+                    **Quick Fix:** 
+                    - Use the "🔧 Install Playwright Browsers" section in the sidebar
+                    - Click "📦 Install Browsers Now" button
+                    - Wait 2-3 minutes for installation to complete
                     
-                    **Alternative:** Run this app locally where you can install browsers with:
-                    ```bash
-                    playwright install chromium
-                    ```
+                    **If installation fails:**
+                    - This may be a Streamlit Cloud limitation
+                    - Contact Streamlit support about browser installation
+                    - Or run the app locally: `playwright install chromium`
                     """)
-                    st.info("💡 **Note:** The app will work once browsers are installed. This is a one-time setup requirement.")
+                    st.info("💡 **Tip:** Check the sidebar for the browser installation button!")
                     return results
                 else:
                     # Other errors - show them
@@ -378,6 +378,25 @@ with st.sidebar:
     if st.button("🚪 Logout", use_container_width=True, key="client_logout_btn"):
         st.session_state.authenticated_user = None
         st.rerun()
+    
+    st.divider()
+    
+    # Browser installation section
+    with st.expander("🔧 Install Playwright Browsers", expanded=False):
+        st.caption("Required for website scanning. Click to install if you see browser errors.")
+        if st.button("📦 Install Browsers Now", use_container_width=True, type="secondary", key="client_install_browsers"):
+            with st.spinner("Installing Playwright browsers... This may take 2-3 minutes."):
+                try:
+                    from playwright_setup import install_playwright_browsers
+                    success = install_playwright_browsers()
+                    if success:
+                        st.success("✅ Browsers installed successfully! You can now run scans.")
+                        st.balloons()
+                    else:
+                        st.error("❌ Installation failed. Check the logs for details.")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.info("💡 If this fails, browsers may need to be installed via Streamlit Cloud settings.")
     
     st.divider()
     

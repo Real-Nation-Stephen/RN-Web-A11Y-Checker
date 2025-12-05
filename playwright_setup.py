@@ -32,7 +32,12 @@ def ensure_playwright_browsers():
 def install_playwright_browsers():
     """Install Playwright browsers"""
     try:
+        import streamlit as st
+        st.info("📦 Installing Playwright Chromium browser... This may take a few minutes.")
+    except:
         print("📦 Installing Playwright Chromium browser...")
+    
+    try:
         result = subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
             check=True,
@@ -40,17 +45,43 @@ def install_playwright_browsers():
             text=True,
             timeout=600  # 10 minute timeout
         )
-        print("✅ Playwright browsers installed successfully")
-        print(result.stdout)
+        output = result.stdout
+        if output:
+            print(output)
+            try:
+                import streamlit as st
+                st.text(output)
+            except:
+                pass
         return True
     except subprocess.TimeoutExpired:
-        print("❌ Browser installation timed out")
+        error_msg = "❌ Browser installation timed out (took longer than 10 minutes)"
+        print(error_msg)
+        try:
+            import streamlit as st
+            st.error(error_msg)
+        except:
+            pass
         return False
     except subprocess.CalledProcessError as e:
-        print(f"❌ Error installing browsers: {e.stderr}")
+        error_msg = f"❌ Error installing browsers: {e.stderr or e.stdout or str(e)}"
+        print(error_msg)
+        try:
+            import streamlit as st
+            st.error(error_msg)
+            if e.stderr:
+                st.code(e.stderr, language="text")
+        except:
+            pass
         return False
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        error_msg = f"❌ Unexpected error: {e}"
+        print(error_msg)
+        try:
+            import streamlit as st
+            st.error(error_msg)
+        except:
+            pass
         return False
 
 # Auto-install on import (only in Streamlit Cloud environment)
