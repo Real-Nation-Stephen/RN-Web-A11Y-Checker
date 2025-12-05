@@ -21,14 +21,40 @@ from auth.auth_module import AuthManager, check_authentication
 # Page configuration - MUST be before any other Streamlit commands
 try:
     from PIL import Image
-    with Image.open("Icon.png") as favicon:
-        st.set_page_config(
-            page_title="Website Accessibility Checker (Client Files)",
-            page_icon=favicon,
-            layout="wide"
-        )
-except:
-    # Fallback if icon file not found
+    # Try root Icon.png first (standard location)
+    try:
+        with Image.open("Icon.png") as favicon:
+            st.set_page_config(
+                page_title="Website Accessibility Checker (Client Files)",
+                page_icon=favicon,
+                layout="wide"
+            )
+    except FileNotFoundError:
+        # Fallback to Assets folder
+        try:
+            with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
+                st.set_page_config(
+                    page_title="Website Accessibility Checker (Client Files)",
+                    page_icon=favicon,
+                    layout="wide"
+                )
+        except FileNotFoundError:
+            # Final fallback to emoji
+            st.set_page_config(
+                page_title="Website Accessibility Checker (Client Files)",
+                page_icon="♿",
+                layout="wide"
+            )
+except ImportError:
+    # Pillow not installed
+    st.set_page_config(
+        page_title="Website Accessibility Checker (Client Files)",
+        page_icon="♿",
+        layout="wide"
+    )
+except Exception as e:
+    # Any other error - log it but don't crash
+    print(f"⚠️ Favicon error: {e}")
     st.set_page_config(
         page_title="Website Accessibility Checker (Client Files)",
         page_icon="♿",
