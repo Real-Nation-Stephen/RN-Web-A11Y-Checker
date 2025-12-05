@@ -19,41 +19,39 @@ from docx import Document
 from auth.auth_module import AuthManager, check_authentication
 
 # Page configuration - MUST be before any other Streamlit commands
+import os
+
 try:
     from PIL import Image
+    
     # Try root Icon.png first (standard location)
-    try:
+    if os.path.exists("Icon.png"):
         with Image.open("Icon.png") as favicon:
             st.set_page_config(
                 page_title="Website Accessibility Checker (Client Files)",
                 page_icon=favicon,
                 layout="wide"
             )
-    except FileNotFoundError:
-        # Fallback to Assets folder
-        try:
-            with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
-                st.set_page_config(
-                    page_title="Website Accessibility Checker (Client Files)",
-                    page_icon=favicon,
-                    layout="wide"
-                )
-        except FileNotFoundError:
-            # Final fallback to emoji
+    elif os.path.exists("Assets/RN_Web_A11y_IconDesign Wrapped.png"):
+        with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
             st.set_page_config(
                 page_title="Website Accessibility Checker (Client Files)",
-                page_icon="♿",
+                page_icon=favicon,
                 layout="wide"
             )
+    else:
+        st.set_page_config(
+            page_title="Website Accessibility Checker (Client Files)",
+            page_icon="♿",
+            layout="wide"
+        )
 except ImportError:
-    # Pillow not installed
     st.set_page_config(
         page_title="Website Accessibility Checker (Client Files)",
         page_icon="♿",
         layout="wide"
     )
 except Exception as e:
-    # Any other error - log it but don't crash
     print(f"⚠️ Favicon error: {e}")
     st.set_page_config(
         page_title="Website Accessibility Checker (Client Files)",

@@ -18,34 +18,59 @@ from playwright.async_api import async_playwright
 from auth.auth_module import AuthManager, check_authentication
 
 # Page configuration - MUST be before any other Streamlit commands
+import os
+
+# Debug: Check what files exist
+if os.path.exists("Icon.png"):
+    print("✅ Icon.png found in root directory")
+elif os.path.exists("Assets/RN_Web_A11y_IconDesign Wrapped.png"):
+    print("✅ Found icon in Assets folder")
+else:
+    print("⚠️ No icon file found - checking directory contents...")
+    try:
+        files = os.listdir(".")
+        png_files = [f for f in files if f.endswith('.png')]
+        print(f"📁 PNG files in root: {png_files}")
+        if os.path.exists("Assets"):
+            assets_files = os.listdir("Assets")
+            assets_png = [f for f in assets_files if f.endswith('.png')]
+            print(f"📁 PNG files in Assets: {assets_png}")
+    except Exception as e:
+        print(f"⚠️ Error listing files: {e}")
+
 try:
     from PIL import Image
+    
     # Try root Icon.png first (standard location)
-    try:
+    if os.path.exists("Icon.png"):
+        print("🔍 Attempting to load Icon.png from root...")
         with Image.open("Icon.png") as favicon:
+            print(f"✅ Successfully loaded Icon.png: {favicon.size}, mode: {favicon.mode}")
             st.set_page_config(
                 page_title="Website Accessibility Checker",
                 page_icon=favicon,
                 layout="wide"
             )
-    except FileNotFoundError:
-        # Fallback to Assets folder
-        try:
-            with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
-                st.set_page_config(
-                    page_title="Website Accessibility Checker",
-                    page_icon=favicon,
-                    layout="wide"
-                )
-        except FileNotFoundError:
-            # Final fallback to emoji
+            print("✅ Page config set with Icon.png favicon")
+    elif os.path.exists("Assets/RN_Web_A11y_IconDesign Wrapped.png"):
+        print("🔍 Attempting to load from Assets folder...")
+        with Image.open("Assets/RN_Web_A11y_IconDesign Wrapped.png") as favicon:
+            print(f"✅ Successfully loaded from Assets: {favicon.size}, mode: {favicon.mode}")
             st.set_page_config(
                 page_title="Website Accessibility Checker",
-                page_icon="♿",
+                page_icon=favicon,
                 layout="wide"
             )
+            print("✅ Page config set with Assets favicon")
+    else:
+        print("⚠️ No icon file found, using emoji fallback")
+        st.set_page_config(
+            page_title="Website Accessibility Checker",
+            page_icon="♿",
+            layout="wide"
+        )
 except ImportError:
-    # Pillow not installed
+    print("⚠️ Pillow not installed, using emoji fallback")
     st.set_page_config(
         page_title="Website Accessibility Checker",
         page_icon="♿",
@@ -53,7 +78,9 @@ except ImportError:
     )
 except Exception as e:
     # Any other error - log it but don't crash
-    print(f"⚠️ Favicon error: {e}")
+    print(f"❌ Favicon error: {type(e).__name__}: {e}")
+    import traceback
+    print(traceback.format_exc())
     st.set_page_config(
         page_title="Website Accessibility Checker",
         page_icon="♿",
